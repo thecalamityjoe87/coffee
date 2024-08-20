@@ -35,9 +35,12 @@ namespace Worker {
 
     public void parse_message (Soup.Message message, string source){
       try {
-          var parser = new Json.Parser ();
-          parser.load_from_data ((string) message.response_body.flatten ().data, -1);
-          var root_object = parser.get_root ().get_object();
+        var session = new Soup.Session();
+        var bytes = session.send_and_read(message, null);
+        
+        var parser = new Json.Parser ();
+        parser.load_from_data((string) bytes.get_data());
+        var root_object = parser.get_root ().get_object();
 
           if(source == Sources.DARK_SKY){
             //var current = root_object.get_object_member ("hourly");

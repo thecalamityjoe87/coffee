@@ -28,7 +28,7 @@ namespace Worker {
     Coffee.Post post = null;
     public SourceFunc callback;
 
-    private string apiKey = "e8a66b24da89420b9a419849e95d47a1";
+    private string apiKey = "fdebbacbad334ef19dcbce68ad8aea85";
     private string geolocation = "";
 
     public Retriever () {
@@ -95,11 +95,11 @@ namespace Worker {
       post.parse_completed();
     }
 
-    private void parse_message (string source) {
+  private void parse_message (string source) {
       var uri = get_source_from_uri(source);
       var session = new Soup.Session ();
       var message = new Soup.Message ("GET", uri);
-      session.send_message (message);
+      session.send (message);
       parser = new Parser ();
       parser.parse_message(message, source);
     }

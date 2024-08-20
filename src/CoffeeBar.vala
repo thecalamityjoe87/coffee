@@ -213,7 +213,7 @@ namespace Coffee {
 
       // Move the window to the right of the screen
       this.move(width,0);
-      this.set_decorated(false);
+      this.set_decorated(true);
       this.set_keep_above (false);
 
       // Sets the default size of a window:

@@ -388,12 +388,12 @@ public class Settings.General.StripeDialog : Gtk.Dialog {
         }
     }
 
-    private void on_pay_clicked () {
+   /* private void on_pay_clicked () {
         new Thread<void*> (null, () => {
             string expiration_dateyear = card_expiration_entry.text.replace("/", "");
             var year = (int.parse (expiration_dateyear[2:4]) + 2000).to_string ();
 
-            var data = get_stripe_data (stripe_key, email_entry.text, (amount * 100).to_string (), card_number_entry.text, expiration_dateyear[0:2], year, card_cvc_entry.text);
+            var data = yield get_stripe_data (stripe_key, email_entry.text, (amount * 100).to_string (), card_number_entry.text, expiration_dateyear[0:2], year, card_cvc_entry.text);
             debug ("Stripe data:%s", data);
             string? error = null;
             try {
@@ -436,27 +436,79 @@ public class Settings.General.StripeDialog : Gtk.Dialog {
 
             return null;
         });
-    }
+    }*/
 
-    private string get_stripe_data (string _key, string _email, string _amount, string _cc_num, string _cc_exp_month, string _cc_exp_year, string _cc_cvc) {
-        var session = new Soup.Session ();
-        var message = new Soup.Message ("POST", STRIPE_URI);
-
-        var request = STRIPE_REQUEST.printf (_email, USER_AGENT, _amount, _cc_num, _cc_cvc, _cc_exp_month, _cc_exp_year);
-        message.request_headers.append ("Authorization", STRIPE_AUTH.printf (_key));
-        message.request_body.append_take (request.data);
-
-        session.send_message (message);
-
-        var data = new StringBuilder ();
-        foreach (var c in message.response_body.data) {
-            data.append ("%c".printf (c));
+    private async void on_pay_clicked () {
+        string expiration_date = card_expiration_entry.text.replace("/", "");
+        string year = (2000 + int.parse(expiration_date[2:4])).to_string();
+    
+        try {
+            var data = yield get_stripe_data(stripe_key, email_entry.text, (amount * 100).to_string(),
+                                             card_number_entry.text, expiration_date[0:2], year, card_cvc_entry.text);
+            debug("Stripe data: %s", data);
+    
+            var parser = new Json.Parser();
+            parser.load_from_data(data);
+            var root_object = parser.get_root().get_object();
+    
+            if (root_object != null && root_object.has_member("id")) {
+                var token_id = root_object.get_string_member("id");
+                var houston_data = yield post_to_houston(stripe_key, app_id, token_id, email_entry.text, (amount * 100).to_string());
+    
+                if (houston_data != null) {
+                    debug("Houston data: %s", houston_data);
+                    parser.load_from_data(houston_data);
+                    root_object = parser.get_root().get_object();
+                    
+                    if (root_object.has_member("errors")) {
+                        show_error_view(_("An error occurred while processing your payment. Please try again."));
+                        return;
+                    }
+                } else {
+                    show_error_view(_("Unable to communicate with the payment server. Please check your internet connection and try again."));
+                    return;
+                }
+            } else if (root_object != null && root_object.has_member("error")) {
+                show_error_view(get_stripe_error(root_object.get_object_member("error")));
+                return;
+            } else {
+                show_error_view(_(DEFAULT_ERROR_MESSAGE));
+                return;
+            }
+    
+            download_requested();
+            destroy();
+        } catch (Error e) {
+            show_error_view(_("An unexpected error occurred: %s").printf(e.message));
+            debug(e.message);
         }
-
-        return data.str;
     }
 
-    private string post_to_houston (string _app_key, string _app_id, string _purchase_token, string _email, string _amount) {
+    private async string get_stripe_data(string _key, string _email, string _amount, string _cc_num, string _cc_exp_month, string _cc_exp_year, string _cc_cvc) {
+        var session = new Soup.Session();
+        var message = new Soup.Message("POST", STRIPE_URI);
+    
+        var request = STRIPE_REQUEST.printf(_email, USER_AGENT, _amount, _cc_num, _cc_cvc, _cc_exp_month, _cc_exp_year);
+        message.request_headers.append("Authorization", STRIPE_AUTH.printf(_key));
+        message.set_request_body_from_bytes("application/x-www-form-urlencoded", new GLib.Bytes(request.data));
+    
+        try {
+            var input_stream = yield session.send_async(message, GLib.Priority.DEFAULT, null);
+            var data_input_stream = new GLib.DataInputStream(input_stream);
+            
+            size_t length;
+            string data = yield data_input_stream.read_upto_async("\0", -1, GLib.Priority.DEFAULT, null, out length);
+            
+            return data ?? "";
+        } catch (Error e) {
+            print("Error: %s\n", e.message);
+            return "";
+        }
+    }
+    
+    
+
+ /*   private string post_to_houston (string _app_key, string _app_id, string _purchase_token, string _email, string _amount) {
         var session = new Soup.Session ();
         var message = new Soup.Message ("POST", HOUSTON_URI.printf (_app_id));
 
@@ -474,7 +526,44 @@ public class Settings.General.StripeDialog : Gtk.Dialog {
         }
 
         return data.str;
+    }*/
+
+
+    private async string post_to_houston (string _app_key, string _app_id, string _purchase_token, string _email, string _amount) throws Error {
+        var session = new Soup.Session ();
+        session.timeout = 30; // 30 seconds timeout
+    
+        var message = new Soup.Message ("POST", HOUSTON_URI.printf (_app_id));
+    
+        message.request_headers.append ("Accepts", "application/vnd.api+json");
+        message.request_headers.append ("Content-Type", "application/vnd.api+json");
+    
+        var payload = HOUSTON_PAYLOAD.printf (_app_key, _purchase_token, _email, _amount);
+        message.set_request_body_from_bytes ("application/vnd.api+json", new GLib.Bytes (payload.data));
+    
+        try {
+            var input_stream = yield session.send_async (message, GLib.Priority.DEFAULT, null);
+            
+            if (message.status_code != 200) {
+                throw new IOError.FAILED ("Server returned status %u", message.status_code);
+            }
+    
+            var data_input_stream = new DataInputStream (input_stream);
+            StringBuilder builder = new StringBuilder ();
+            size_t length;
+            string? line;
+    
+            while ((line = yield data_input_stream.read_line_async (GLib.Priority.DEFAULT, null, out length)) != null) {
+                builder.append (line);
+            }
+    
+            return builder.str;
+        } catch (Error e) {
+            throw new IOError.FAILED ("Error: %s", e.message);
+        }
     }
+      
+    
 
     private static unowned string get_stripe_error (Json.Object error_object) {
         if (error_object.has_member ("type")) {

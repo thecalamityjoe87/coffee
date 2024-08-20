@@ -13,9 +13,9 @@ add_project_arguments(
 glib = dependency ('glib-2.0')
 gtk = dependency ('gtk+-3.0')
 json = dependency ('json-glib-1.0')
-soup = dependency ('libsoup-2.4')
+soup = dependency ('libsoup-3.0')
 gee = dependency ('gee-0.8')
-geocode = dependency('geocode-glib-1.0')
+geocode = dependency('geocode-glib-2.0')
 geoclue = dependency('libgeoclue-2.0')
 
 conf_data = configuration_data()
