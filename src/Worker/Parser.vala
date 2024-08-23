@@ -33,14 +33,12 @@ namespace Worker {
       intNews = 15 / settings.get_news_count();
     }
 
-    public void parse_message (Soup.Message message, string source){
+    public async void parse_message (GLib.Bytes bytes, string source){
+      var parser = new Json.Parser();
       try {
-        var session = new Soup.Session();
-        var bytes = session.send_and_read(message, null);
-        
-        var parser = new Json.Parser ();
-        parser.load_from_data((string) bytes.get_data());
+        parser.load_from_data((string) bytes.get_data(), -1);
         var root_object = parser.get_root ().get_object();
+        print_root(parser.get_root());
 
           if(source == Sources.DARK_SKY){
             //var current = root_object.get_object_member ("hourly");
@@ -50,6 +48,7 @@ namespace Worker {
             //parse_forecast(forecast);
           }
           else{
+            print_root(parser.get_root());
             var response = root_object.get_array_member ("articles");
             parse_news(response);
           }
@@ -222,4 +221,10 @@ namespace Worker {
       return "N/A";
     }
   }
+}
+
+private void print_root (Json.Node root) {
+  Json.Generator generator = new Json.Generator ();
+  generator.set_root (root);
+  debug (generator.to_data (null) + "\n");
 }

@@ -24,25 +24,13 @@ namespace Settings {
     private string besticons_uri = "https://coffee-favicon.herokuapp.com/allicons.json?url=";
     //https://besticon.herokuapp.com/allicons.json?url=
     private NewsSource news_sources;
-    private string apiKey = "fdebbacbad334ef19dcbce68ad8aea85";
+    private string apiKey = "2695515e69d14f59baf1236334cdc67f";
 
     construct {
         news_sources = NewsSource.get_default ();
     }
 
-  /*   public void get_sources (string category = "", string country = "") {
-        if(category != "" && country != "")
-          sources_uri = "https://newsapi.org/v2/sources?" + "category=" + category + "&language=" + country + "&apiKey=" + apiKey;
-        else
-          sources_uri = "https://newsapi.org/v2/sources?" + "apiKey=" + apiKey;
-
-        var session = new Soup.Session ();
-        var message = new Soup.Message ("GET", sources_uri);
-        session.send (message);
-        parse_message(message);
-    }*/
-
-    public async void get_sources(string category = "", string country = "") {
+  public async void get_sources(string category = "", string country = "") {
       if (category != "" && country != "") {
           sources_uri = "https://newsapi.org/v2/sources?" + "category=" + category + "&language=" + country + "&apiKey=" + apiKey;
       } else {
@@ -50,18 +38,19 @@ namespace Settings {
       }
 
       var session = new Soup.Session();
+      session.user_agent = "Coffee/1.0";
       var message = new Soup.Message("GET", sources_uri);
       
       try {
         GLib.Bytes bytes = yield session.send_and_read_async (message, GLib.Priority.HIGH, null);
         debug("(getsources)Parsing message with length: %zu", bytes.get_size());
-        yield parse_message(bytes);
+        parse_message(bytes);
       } catch (Error e) {
           stderr.printf("Error fetching sources: %s\n", e.message);
       }
   }
 
-private async void parse_message(GLib.Bytes bytes) {
+  private async void parse_message(GLib.Bytes bytes) {
     debug("Parsing message with length: %zu", bytes.get_size());
     var parser = new Json.Parser();
     parser.load_from_data((string) bytes.get_data(), -1);
@@ -71,7 +60,7 @@ private async void parse_message(GLib.Bytes bytes) {
           if (root_object != null){
               print_root(parser.get_root());
               var response = root_object.get_array_member("sources");
-              yield add_sources(response);
+              add_sources(response);
           } else {
               stderr.printf("Error: 'sources' array not found in the response.\n");
           }
@@ -83,7 +72,7 @@ private async void parse_message(GLib.Bytes bytes) {
   }
 
 
-    public async string get_besticon_url (string source_name) {
+public async string get_besticon_url (string source_name) {
       debug("get_besticon_url(%s)", source_name);
       var uri = besticons_uri + source_name;
       var session = new Soup.Session ();
@@ -91,9 +80,8 @@ private async void parse_message(GLib.Bytes bytes) {
       var message = new Soup.Message ("GET", uri);
       
       try {
-          var input_stream = yield session.send_async(message, GLib.Priority.DEFAULT, null);
-          var bytes = yield input_stream.read_bytes_async(int.MAX, GLib.Priority.DEFAULT, null);
-          besticon_url = parse_besticon_message(bytes);
+        GLib.Bytes bytes = yield session.send_and_read_async (message, GLib.Priority.HIGH, null);
+        besticon_url = parse_besticon_message(bytes);
       } catch (Error e) {
           warning ("Besticon: %s", e.message);
       }
@@ -101,7 +89,7 @@ private async void parse_message(GLib.Bytes bytes) {
       return besticon_url;
   }
   
-  private string parse_besticon_message (Bytes bytes) {
+  private string parse_besticon_message (GLib.Bytes bytes) {
       try {
           var parser = new Json.Parser ();
           parser.load_from_data((string) bytes.get_data(), -1);
@@ -145,9 +133,8 @@ private async void add_sources (Json.Array response){
   }
 }
 
-
-private void print_root (Json.Node root) {
+/*private void print_root (Json.Node root) {
     Json.Generator generator = new Json.Generator ();
     generator.set_root (root);
     debug (generator.to_data (null) + "\n");
-}
+}*/

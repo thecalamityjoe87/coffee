@@ -14,98 +14,92 @@
 * You should have received a copy of the GNU General Public License
 * along with Coffee. If not, see <http://www.gnu.org/licenses/>.
 */
-using Gtk;
+public class Settings.General.AboutGrid : Gtk.Grid {
 
-namespace Settings {
-  public class General.AboutGrid : Grid {
+  private Gtk.Switch _switch_weather;
+  private Gtk.Switch _switch_news;
 
-    private Gtk.Switch _switch_weather;
-    private Gtk.Switch _switch_news;
+  private Gtk.Button hide_show_key;
+  private Gtk.Button close_key;
+  private Settings settings;
 
-    private Gtk.Button hide_show_key;
-    private Gtk.Button close_key;
-    private Gtk.Button btn_donate;
-    private Settings settings;
-
-    public AboutGrid () {
-      column_spacing = 12;
-      halign = Gtk.Align.CENTER;
-      row_spacing = 6;
-      margin_start = margin_end = 6;
+  public AboutGrid () {
+      Object (
+          column_spacing: 12,
+          halign: Gtk.Align.CENTER,
+          row_spacing: 6,
+          margin_start: 6,
+          margin_end: 6
+      );
 
       settings = Settings.get_default ();
 
-      var hide_show_label = new Gtk.Label("Hide / Show Coffee:");
-      hide_show_label.halign = Gtk.Align.END;
+      var hide_show_label = new Gtk.Label("Hide / Show Coffee:") {
+          halign = Gtk.Align.END
+      };
 
-      var close_label = new Gtk.Label("Quit Coffee:");
-      close_label.halign = Gtk.Align.END;
+      var close_label = new Gtk.Label("Quit Coffee:") {
+          halign = Gtk.Align.END
+      };
 
-      var donate_label = new Gtk.Label("Help Coffee:");
-      donate_label.halign = Gtk.Align.END;
+      hide_show_key = new Gtk.Button.with_label("F10") {
+          sensitive = false,
+          halign = Gtk.Align.END
+      };
 
-      hide_show_key = new Gtk.Button.with_label("F10");
-      hide_show_key.sensitive = false;
-      hide_show_key.halign = Gtk.Align.END;
+      close_key = new Gtk.Button.with_label("Esc / F4") {
+          sensitive = false,
+          halign = Gtk.Align.END
+      };
 
-      close_key = new Gtk.Button.with_label("Esc / F4");
-      close_key.sensitive = false;
-      close_key.halign = Gtk.Align.END;
-
-      btn_donate = new Gtk.Button.with_label("Donate");
-      btn_donate.halign = Gtk.Align.END;
-
-      var weather_label = new Gtk.Label("Weather:");
-      weather_label.halign = Gtk.Align.END;
+      var weather_label = new Gtk.Label("Weather:") {
+          halign = Gtk.Align.END
+      };
       _switch_weather = new Gtk.Switch ();
 
-      var news_label = new Gtk.Label("News:");
-      news_label.halign = Gtk.Align.END;
+      var news_label = new Gtk.Label("News:") {
+          halign = Gtk.Align.END
+      };
       _switch_news = new Gtk.Switch ();
 
-      if(settings.news_bool)
-        _switch_news.active = true;
+      if (settings.news_bool)
+          _switch_news.active = true;
 
-      if(settings.weather_bool)
-        _switch_weather.active = true;
+      if (settings.weather_bool)
+          _switch_weather.active = true;
 
-      //attach(weather_label, 1, 0, 1, 1);
-      //attach(_switch_weather, 2, 0, 1, 1);
-      //attach(news_label, 1, 1, 1, 1);
-      //attach(_switch_news, 2, 1, 1, 1);
-      attach(hide_show_label, 1, 2, 1, 1);
-      attach(hide_show_key, 2, 2, 1, 1);
-      attach(close_label, 1, 3, 1, 1);
-      attach(close_key, 2, 3, 1, 1);
-      attach(donate_label, 1, 4, 1, 1);
-      attach(btn_donate, 2, 4, 1, 1);
+      attach(weather_label, 1, 0);
+      attach(_switch_weather, 2, 0);
+      attach(news_label, 1, 1);
+      attach(_switch_news, 2, 1);
+      attach(hide_show_label, 1, 2);
+      attach(hide_show_key, 2, 2);
+      attach(close_label, 1, 3);
+      attach(close_key, 2, 3);
 
       _switch_weather.notify["active"].connect (() => {
-        settings.change_setting_bool(_switch_weather.active, settings.weather_string);
+          settings.change_setting_bool(_switch_weather.active, settings.weather_string);
       });
       _switch_news.notify["active"].connect (() => {
-        settings.change_setting_bool(_switch_news.active, settings.news_string);
+          settings.change_setting_bool(_switch_news.active, settings.news_string);
       });
 
-      connect_events  ();
-    }
+      connect_events ();
+  }
 
-    private void connect_events () {
+  private void connect_events () {
       hide_show_key.clicked.connect (() => {
           hide_show_key.set_label ("Assign New Key ...");
-          hide_show_key.key_press_event.connect (key_press_event);
+          var key_controller = new Gtk.EventControllerKey ();
+          key_controller.key_pressed.connect (key_pressed);
+          hide_show_key.add_controller (key_controller);
       });
+  }
 
-      btn_donate.clicked.connect (() => {
-        var stripe_dialog = new StripeDialog(20, "Coffee", "", "pk_test_KLh0MCbZmwQHPtbEyGlQvR9Q");
-        stripe_dialog.show_all();
-      });
-    }
-
-    private bool key_press_event (Gdk.EventKey event){
-      hide_show_key.set_label (event.keyval.to_string ());
-      hide_show_key.key_press_event.disconnect (key_press_event);
+  private bool key_pressed (Gtk.EventControllerKey controller, uint keyval, uint keycode, Gdk.ModifierType state) {
+      hide_show_key.set_label (Gdk.keyval_name (keyval));
+      hide_show_key.remove_controller (controller);
       return true;
-    }
   }
 }
+

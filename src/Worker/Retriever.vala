@@ -95,16 +95,23 @@ namespace Worker {
       post.parse_completed();
     }
 
-  private void parse_message (string source) {
+  private async void parse_message (string source) {
       var uri = get_source_from_uri(source);
       var session = new Soup.Session ();
+      session.user_agent = "Coffee/1.0";
       var message = new Soup.Message ("GET", uri);
-      session.send (message);
-      parser = new Parser ();
-      parser.parse_message(message, source);
+
+      try {
+        GLib.Bytes bytes = yield session.send_and_read_async (message, GLib.Priority.HIGH, null);
+        debug("(getsources)Parsing message with length: %zu", bytes.get_size());
+        parser = new Parser ();
+        parser.parse_message(bytes, source);
+      } catch (GLib.Error e) {
+          stderr.printf("Error fetching sources: %s\n", e.message);
+      }
     }
 
-    public string get_source_from_uri(string news_source)
+  public string get_source_from_uri(string news_source)
     {
       if(news_source == Sources.DARK_SKY)
         return "https://api.darksky.net/forecast/06446ae7099feacb17ffef78fdf89f0a/" + geolocation + "?units=auto&exclude=[minutely,alerts,flags]";
